@@ -543,7 +543,7 @@ def update_foto(
     return {"msg": "Foto actualizada correctamente", "trabajador_id": trabajador_id, "nueva_foto": db_trabajador.foto}
 
 
-####################
+#####################
 from fastapi import Body
 
 class DeleteFotoRequest(BaseModel):
