@@ -562,32 +562,3 @@ def delete_foto(
         return {"msg": "Foto eliminada correctamente", "public_id": public_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
-    
-####################
-
-from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy.orm import Session
-
-app = FastAPI()
-
-# 🔹 Endpoint para eliminar trabajador y sus servicios
-@app.delete("/trabajadores/{idt}")
-def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
-    # 1) Eliminar servicios asociados
-    servicios = db.query(Servicios_Trabajadores).filter(Servicios_Trabajadores.idt == idt).all()
-    if servicios:
-        for s in servicios:
-            db.delete(s)
-
-    # 2) Eliminar trabajador
-    trabajador = db.query(Trabajador).filter(Trabajador.idt == idt).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    
-    db.delete(trabajador)
-
-    db.commit()
-
-    return {"result": "ok", "message": f"Trabajador {idt} y servicios asociados eliminados"}
-
-####################
