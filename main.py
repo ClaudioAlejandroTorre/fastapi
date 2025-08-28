@@ -543,7 +543,7 @@ def update_foto(
     return {"msg": "Foto actualizada correctamente", "trabajador_id": trabajador_id, "nueva_foto": db_trabajador.foto}
 
 
-#####################
+####################
 from fastapi import Body
 
 class DeleteFotoRequest(BaseModel):
@@ -562,6 +562,7 @@ def delete_foto(
         return {"msg": "Foto eliminada correctamente", "public_id": public_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
+    
 ####################
 
 from fastapi import FastAPI, HTTPException, Depends
