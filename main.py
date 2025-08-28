@@ -562,3 +562,14 @@ def delete_foto(
         return {"msg": "Foto eliminada correctamente", "public_id": public_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
+####################
+@app.delete("/trabajadores/{idt}")
+def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
+    trabajador = db.query(Trabajador).filter(Trabajador.id == idt).first()
+    if not trabajador:
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
+    db.delete(trabajador)
+    db.commit()
+    return {"detail": f"Trabajador {idt} eliminado correctamente"}
+
+####################
