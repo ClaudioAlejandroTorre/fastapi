@@ -590,8 +590,8 @@ def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
 
     ####################
 
-    #db.delete(trabajador)
-    #db.commit()
-    return {"detail": f"Trabajador {idt} eliminado correctamente"}
+    db.delete(trabajador)
+    db.commit()
+    return {"detail": f"Trabajador {idt} eliminado correctamente, con su foto "}
 
 ####################
