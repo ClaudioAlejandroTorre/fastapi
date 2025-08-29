@@ -568,8 +568,30 @@ def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
     trabajador = db.query(Trabajador).filter(Trabajador.id == idt).first()
     if not trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    db.delete(trabajador)
-    db.commit()
+    ####################
+    # Agregado 29/8
+        # 3) Si tiene foto, eliminarla en Cloudinary
+    if trabajador.foto:
+        try:
+            url_parts = trabajador.foto.split("/")
+            # Extrae todo después de 'upload/'
+            if "upload" in url_parts:
+                idx = url_parts.index("upload") + 1
+                public_id_with_ext = "/".join(url_parts[idx:])
+                public_id = os.path.splitext(public_id_with_ext)[0]  # quita extensión
+                result = cloudinary.uploader.destroy(public_id)
+                print(f"⚠️ Foto Eliminada: {public_id}")
+            else:
+                print(f"⚠️ Foto Inválida, no se pudo extraer public_id: {trabajador.foto}")
+
+        except Exception as e:
+            print(f"⚠️ Error al borrar foto en Cloudinary: {public_id}")
+
+
+    ####################
+
+    #db.delete(trabajador)
+    #db.commit()
     return {"detail": f"Trabajador {idt} eliminado correctamente"}
 
 ####################
