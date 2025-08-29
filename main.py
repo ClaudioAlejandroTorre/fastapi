@@ -569,6 +569,12 @@ def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
     if not trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
     ####################
+    # 2) Eliminar opiniones asociadas
+    opiniones = db.query(Opinion).filter(Opinion.trabajador_id == idt).all()
+    if opiniones:
+        for op in opiniones:
+            db.delete(op)
+     ####################
     # Agregado 29/8
         # 3) Si tiene foto, eliminarla en Cloudinary
     if trabajador.foto:
