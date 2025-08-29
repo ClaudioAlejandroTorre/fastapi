@@ -503,8 +503,8 @@ def update_penales(
 ####################
 @app.get("/ping")
 def ping():
-    print("🔔 PINGU recibido")
-    return {"Pingu ok": True}
+    print("🔔 PINGA recibido")
+    return {"Pinga ok": True}
 ####################
 from fastapi import FastAPI, HTTPException, Depends, Query
 from pydantic import BaseModel
@@ -563,53 +563,13 @@ def delete_foto(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 ####################
-
-from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy.orm import Session
-import cloudinary
-import cloudinary.uploader
-import logging
-import os
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-app = FastAPI()
-
 @app.delete("/trabajadores/{idt}")
 def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
-    # 1) Eliminar servicios asociados
-    servicios = db.query(Servicios_Trabajadores).filter(Servicios_Trabajadores.idt == idt).all()
-    if servicios:
-        for s in servicios:
-            db.delete(s)
-
-    # 2) Buscar trabajador
-    trabajador = db.query(Trabajador).filter(Trabajador.idt == idt).first()
+    trabajador = db.query(Trabajador).filter(Trabajador.id == idt).first()
     if not trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-
-    # 3) Si tiene foto, eliminarla en Cloudinary
-    if trabajador.foto:
-        try:
-            url_parts = trabajador.foto.split("/")
-            # Extrae todo después de 'upload/'
-            if "upload" in url_parts:
-                idx = url_parts.index("upload") + 1
-                public_id_with_ext = "/".join(url_parts[idx:])
-                public_id = os.path.splitext(public_id_with_ext)[0]  # quita extensión
-                result = cloudinary.uploader.destroy(public_id)
-                logger.info(f"⚠️ Cloudinary destroy response: {result} (public_id: {public_id})")
-            else:
-                logger.warning(f"URL de foto inválida, no se pudo extraer public_id: {trabajador.foto}")
-        except Exception as e:
-            logger.error(f"Error al borrar foto en Cloudinary: {e}")
-
-    # 4) Eliminar trabajador
     db.delete(trabajador)
     db.commit()
-
-    return {"result": "ok", "message": f"Trabajador {idt}, servicios y foto eliminados correctamente"}
-
+    return {"detail": f"Trabajador {idt} eliminado correctamente"}
 
 ####################
