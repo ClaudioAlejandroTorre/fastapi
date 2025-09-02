@@ -116,22 +116,7 @@ class Trabajador(Base):
     wsapp = Column(String, nullable=False)
     foto = Column(String, nullable=False)
     penales = Column(String, nullable=False)
-    google_id = Column(String, nullable=True)  # NUEVO
     servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
-
-class TrabajadorBaseWithGoogle(BaseModel):
-    nombre: str
-    dni: str
-    correoElec: str
-    direccion: str
-    localidad: str
-    latitud: float
-    longitud: float
-    wsapp: str
-    foto: str
-    penales: str
-    google_id: str | None = None  # NUEVO
-
 
     #nuevos############### 19 / 6
 class Opinion(Base):
@@ -609,30 +594,3 @@ def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
     return {"detail": f"Trabajador {idt} eliminado correctamente, con su foto "}
 
 ####################
-@app.post("/registro_trabajador/")
-async def crear_trabajador(trabajador: TrabajadorBaseWithGoogle, db: Session = Depends(get_db)):
-    db_trabajador = Trabajador(**trabajador.dict())
-    db.add(db_trabajador)
-    db.commit()
-    db.refresh(db_trabajador)
-    return {"mensaje": "Trabajador registrado exitosamente", "id": db_trabajador.id}
-
-@app.get("/trabajador_por_google/{google_id}")
-async def get_trabajador_por_google(google_id: str, db: Session = Depends(get_db)):
-    trabajador = db.query(Trabajador).filter(Trabajador.google_id == google_id).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    return {
-        "id": trabajador.id,
-        "nombre": trabajador.nombre,
-        "dni": trabajador.dni,
-        "correoElec": trabajador.correoElec,
-        "direccion": trabajador.direccion,
-        "localidad": trabajador.localidad,
-        "latitud": trabajador.latitud,
-        "longitud": trabajador.longitud,
-        "wsapp": trabajador.wsapp,
-        "foto": trabajador.foto,
-        "penales": trabajador.penales,
-        "google_id": trabajador.google_id
-    }
