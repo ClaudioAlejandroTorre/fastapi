@@ -594,3 +594,43 @@ def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
     return {"detail": f"Trabajador {idt} eliminado correctamente, con su foto "}
 
 ####################
+from pydantic import BaseModel
+from typing import Optional
+from sqlalchemy.orm import Session
+from fastapi import Depends
+
+# Pydantic para recibir datos de Google Sign-In
+class TrabajadorGoogleIn(BaseModel):
+    google_id: str
+    nombre: str
+    oficio: str
+    wsapp: Optional[str] = None
+
+@app.post("/registro_google/")
+def registro_trabajador_google(trabajador: TrabajadorGoogleIn, db: Session = Depends(get_db)):
+    """
+    Endpoint para registrar un trabajador usando Google ID.
+    Persistente a reinstalaciones de la app porque el Google ID es único.
+    """
+    # Verificar si ya existe
+    existente = db.query(Trabajador).filter(Trabajador.dni == trabajador.google_id).first()
+    if existente:
+        return {"status": "ok", "message": "Trabajador ya registrado", "trabajador_id": existente.id}
+    
+    # Crear nuevo trabajador
+    nuevo = Trabajador(
+        dni=trabajador.google_id,  # usamos 'dni' como identificador único temporal
+        nombre=trabajador.nombre,
+        wsapp=trabajador.wsapp if trabajador.wsapp else "",
+        correoElec="",
+        direccion="",
+        localidad="",
+        latitud=0.0,
+        longitud=0.0,
+        penales="",
+        foto=""
+    )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return {"status": "ok", "message": "Trabajador registrado", "trabajador_id": nuevo.id}
