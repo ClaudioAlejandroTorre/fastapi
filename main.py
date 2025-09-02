@@ -1,16 +1,21 @@
+"""
+main.py completo - FastAPI 3.13 / Render / Cloudinary / PostgreSQL
+Usuarios: consultores y trabajadores
+Trabajadores usan google_id para login seguro y edición de su propio aviso
+"""
+
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Depends, status, Query, Body
+from typing import Annotated, List
+from fastapi import FastAPI, HTTPException, Depends, Query, Body, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, Float, String, ForeignKey, DateTime
-from sqlalchemy.orm import declarative_base, relationship, Session, joinedload
 from pydantic import BaseModel
-from typing import List, Annotated, Optional
+from sqlalchemy import create_engine, Column, Integer, Float, String, ForeignKey, DateTime, select
+from sqlalchemy.orm import declarative_base, relationship, Session, joinedload
 import cloudinary
 import cloudinary.uploader
-import os
 
-# Config Cloudinary
+# ----------------- CONFIGURACIÓN CLOUDINARY -----------------
 cloudinary.config(
     cloud_name='dnlios4ua',
     api_key='747777351831491',
@@ -18,23 +23,22 @@ cloudinary.config(
     secure=True
 )
 
-# DB URL PostgreSQL
+# ----------------- DATABASE POSTGRESQL -----------------
 DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 
-# CORS
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.mount("/static", StaticFiles(directory="fotos"), name="static")
-
-# -------------------- MODELOS --------------------
+# ----------------- MODELOS SQLALCHEMY -----------------
+class Usuario(Base):
+    __tablename__ = 'usuarios'
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String, nullable=False)
+    dni = Column(String, nullable=False)
+    correoElec = Column(String, nullable=False)
+    direccion = Column(String, nullable=False)
+    localidad = Column(String, nullable=False)
+    wsapp = Column(String, nullable=False)
+    servicios_trabajadores = relationship("Servicios_Trabajadores", secondary="usuarios_servicios_trabajadores", back_populates='usuarios')
 
 class Trabajador(Base):
     __tablename__ = 'trabajadores'
@@ -49,8 +53,16 @@ class Trabajador(Base):
     wsapp = Column(String, nullable=False)
     foto = Column(String, nullable=False)
     penales = Column(String, nullable=False)
-    google_id = Column(String, nullable=False, unique=True)  # Nuevo campo
+    google_id = Column(String, unique=True, nullable=True)  # <-- Para Sign-In
     servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
+
+class Opinion(Base):
+    __tablename__ = 'opiniones'
+    id = Column(Integer, primary_key=True, index=True)
+    trabajador_id = Column(Integer)
+    comentario = Column(String, nullable=False)
+    calificacion = Column(Integer, nullable=False)
+    fecha = Column(DateTime, default=datetime.now(timezone.utc))
 
 class Servicio(Base):
     __tablename__ = 'servicios'
@@ -60,22 +72,26 @@ class Servicio(Base):
 
 class Servicios_Trabajadores(Base):
     __tablename__ = 'servicios_trabajadores'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    servicio_id = Column(Integer, ForeignKey('servicios.id'))
-    trabajador_id = Column(Integer, ForeignKey('trabajadores.id'))
+    servicio_id = Column(Integer, ForeignKey('servicios.id'), primary_key=True)
+    trabajador_id = Column(Integer, ForeignKey('trabajadores.id'), primary_key=True)
     precioxhora = Column(Integer)
+    usuarios = relationship("Usuario", secondary="usuarios_servicios_trabajadores", back_populates='servicios_trabajadores')
 
-class Opinion(Base):
-    __tablename__ = 'opiniones'
-    id = Column(Integer, primary_key=True, index=True)
-    trabajador_id = Column(Integer, nullable=False)
-    comentario = Column(String, nullable=False)
-    calificacion = Column(Integer, nullable=False)
-    fecha = Column(DateTime, default=datetime.now(timezone.utc))
+class Usuarios_Servicios_Trabajadores(Base):
+    __tablename__ = 'usuarios_servicios_trabajadores'
+    usuario_id = Column(Integer, ForeignKey('usuarios.id'), primary_key=True)
+    servicio_trabajador_id = Column(Integer, ForeignKey('servicios_trabajadores.servicio_id'), primary_key=True)
 
-# -------------------- SCHEMAS --------------------
+class Tracking(Base):
+    __tablename__ = 'tracking'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fecha_hora = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    latitud = Column(Float, nullable=False)
+    longitud = Column(Float, nullable=False)
+    id_android = Column(String, nullable=False)
 
-class TrabajadorCreate(BaseModel):
+# ----------------- MODELOS Pydantic -----------------
+class TrabajadorBase(BaseModel):
     nombre: str
     dni: str
     correoElec: str
@@ -86,114 +102,118 @@ class TrabajadorCreate(BaseModel):
     wsapp: str
     foto: str
     penales: str
-    google_id: str
+    google_id: str | None = None
 
-class TrabajadorUpdate(BaseModel):
-    correoElec: Optional[str]
-    direccion: Optional[str]
-    localidad: Optional[str]
-    latitud: Optional[float]
-    longitud: Optional[float]
-    wsapp: Optional[str]
-    penales: Optional[str]
+class DescripcionUpdate(BaseModel):
+    descripcion: str
+
+class FotoUpdate(BaseModel):
+    nueva_foto_url: str
+    vieja_foto_url: str | None = None
+
+class DeleteFotoRequest(BaseModel):
+    foto_url: str
 
 class OpinionCreate(BaseModel):
     comentario: str
     calificacion: int
 
-# -------------------- DB SESSION --------------------
+class TrabajadorPublic(BaseModel):
+    id: int
+    nombre: str
+    penales: str
+    class Config:
+        orm_mode = True
 
-def get_db():
-    db = Session(bind=engine)
-    try:
-        yield db
-    finally:
-        db.close()
+# ----------------- DEPENDENCIA DB -----------------
+def get_session():
+    with Session(engine) as session:
+        yield session
 
-db_dependency = Annotated[Session, Depends(get_db)]
+SessionDep = Annotated[Session, Depends(get_session)]
 
-# Crear tablas
-Base.metadata.create_all(engine)
+# ----------------- APP CONFIG -----------------
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.mount("/static", StaticFiles(directory="fotos"), name="static")
 
-# -------------------- ENDPOINTS --------------------
+# ----------------- ENDPOINTS -----------------
 
 @app.post("/registro/", status_code=status.HTTP_201_CREATED)
-def crear_trabajador(trabajador: TrabajadorCreate, db: db_dependency):
-    # Si ya existe google_id → no duplicar
-    existing = db.query(Trabajador).filter(Trabajador.google_id == trabajador.google_id).first()
-    if existing:
-        return {"mensaje": "Trabajador ya existe", "id": existing.id}
+def crear_trabajador(trabajador: TrabajadorBase, session: SessionDep):
+    # Solo un trabajador por google_id
+    if trabajador.google_id:
+        existente = session.query(Trabajador).filter_by(google_id=trabajador.google_id).first()
+        if existente:
+            return {"mensaje": "Trabajador ya existe", "id": existente.id}
+
     nuevo = Trabajador(**trabajador.dict())
-    db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
+    session.add(nuevo)
+    session.commit()
+    session.refresh(nuevo)
     return {"mensaje": "Registro exitoso", "id": nuevo.id}
 
-@app.patch("/trabajadores/{trabajador_id}")
-def editar_trabajador(trabajador_id: int, google_id: str = Query(...), data: TrabajadorUpdate = Body(...), db: db_dependency = Depends(get_db)):
-    t = db.query(Trabajador).filter(Trabajador.id == trabajador_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    if t.google_id != google_id:
-        raise HTTPException(status_code=403, detail="No puede editar este aviso")
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(t, field, value)
-    db.commit()
-    db.refresh(t)
-    return {"mensaje": "Aviso actualizado", "trabajador": t.id}
+@app.patch("/trabajadores/{trabajador_id}", response_model=TrabajadorPublic)
+def update_penales(
+    *,
+    session: SessionDep,
+    trabajador_id: int,
+    descripcion: str = Query(...)
+):
+    db_trabajador = session.get(Trabajador, trabajador_id)
+    if not db_trabajador:
+        raise HTTPException(status_code=404, detail="Trabajador not found")
+    db_trabajador.penales = descripcion
+    session.add(db_trabajador)
+    session.commit()
+    session.refresh(db_trabajador)
+    return db_trabajador
 
-@app.delete("/trabajadores/{trabajador_id}")
-def eliminar_trabajador(trabajador_id: int, google_id: str = Query(...), db: db_dependency = Depends(get_db)):
-    t = db.query(Trabajador).filter(Trabajador.id == trabajador_id).first()
-    if not t:
+@app.put("/trabajadores/{trabajador_id}/foto")
+def update_foto(
+    *,
+    session: SessionDep,
+    trabajador_id: int,
+    payload: FotoUpdate
+):
+    db_trabajador = session.get(Trabajador, trabajador_id)
+    if not db_trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    if t.google_id != google_id:
-        raise HTTPException(status_code=403, detail="No puede eliminar este aviso")
-    # Borrar opiniones
-    opiniones = db.query(Opinion).filter(Opinion.trabajador_id == trabajador_id).all()
-    for op in opiniones:
-        db.delete(op)
-    # Borrar foto Cloudinary
-    if t.foto:
+    db_trabajador.foto = payload.nueva_foto_url
+    session.add(db_trabajador)
+    session.commit()
+    session.refresh(db_trabajador)
+    if payload.vieja_foto_url:
         try:
-            public_id = t.foto.split("/")[-1].split(".")[0]
+            public_id = payload.vieja_foto_url.split("/")[-1].split(".")[0]
             cloudinary.uploader.destroy(public_id)
-        except:
-            pass
-    db.delete(t)
-    db.commit()
-    return {"mensaje": "Trabajador eliminado correctamente"}
+        except Exception as e:
+            print(f"⚠️ No se pudo eliminar la foto vieja: {e}")
+    return {"msg": "Foto actualizada correctamente", "trabajador_id": trabajador_id, "nueva_foto": db_trabajador.foto}
 
-@app.get("/Listo_trabajadoresPorServicio/{titulo_servicio}")
-def listar_trabajadores(titulo_servicio: str, db: db_dependency):
-    consulta = db.query(Servicio.titulo, Trabajador.id, Trabajador.nombre, Trabajador.penales, Trabajador.foto, Trabajador.wsapp, Trabajador.latitud, Trabajador.longitud, Trabajador.google_id)\
-        .join(Servicios_Trabajadores, Servicio.id == Servicios_Trabajadores.servicio_id)\
-        .join(Trabajador, Trabajador.id == Servicios_Trabajadores.trabajador_id)\
-        .filter(Servicio.titulo == titulo_servicio).all()
-    resultado = [
-        {
-            "servicio": row[0],
-            "id": row[1],
-            "nombre": row[2],
-            "penales": row[3],
-            "foto": row[4],
-            "wsapp": row[5],
-            "Latitud": row[6],
-            "Longitud": row[7],
-            "google_id": row[8]
-        }
-        for row in consulta
-    ]
-    return {"trabajadores": resultado}
+@app.delete("/trabajadores/foto")
+def delete_foto(payload: DeleteFotoRequest = Body(...)):
+    try:
+        public_id = payload.foto_url.split("/")[-1].split(".")[0]
+        result = cloudinary.uploader.destroy(public_id)
+        if result.get("result") not in ("ok", "not_found"):
+            raise HTTPException(status_code=400, detail=f"Error eliminando foto: {result}")
+        return {"msg": "Foto eliminada correctamente", "public_id": public_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 
-@app.get("/opiniones_por_trabajador/{trabajador_id}")
-def opiniones_por_trabajador(trabajador_id: int, db: db_dependency):
-    return db.query(Opinion).filter(Opinion.trabajador_id == trabajador_id).order_by(Opinion.id.desc()).all()
+@app.post("/tracking/", status_code=status.HTTP_201_CREATED)
+def crear_tracking(tracking: Tracking, session: SessionDep):
+    session.add(tracking)
+    session.commit()
+    session.refresh(tracking)
+    return {"mensaje": "Tracking registrado", "id": tracking.id}
 
-@app.post("/opiniones/{trabajador_id}")
-def crear_opinion(trabajador_id: int, opinion: OpinionCreate, db: db_dependency):
-    nueva = Opinion(trabajador_id=trabajador_id, comentario=opinion.comentario, calificacion=opinion.calificacion)
-    db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-    return {"mensaje": "Opinión registrada", "id": nueva.id}
+# ----------------- CREAR TABLAS -----------------
+Base.metadata.create_all(engine)
