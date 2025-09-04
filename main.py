@@ -374,15 +374,15 @@ async def crear_Relacion_Trabajador_Servicio(registro: ServicioTrabajadorBase, d
 def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends(get_db)):
     consulta = (
         db.query(
-            Servicio.titulo,
-            Trabajador.id,
-            Trabajador.nombre,
-            Trabajador.penales,
-            Trabajador.foto,
-            Trabajador.wsapp,
-            Trabajador.latitud,
+            Servicio.titulo, 
+            Trabajador.id, 
+            Trabajador.nombre, 
+            Trabajador.penales, 
+            Trabajador.foto, 
+            Trabajador.wsapp, 
+            Trabajador.latitud, 
             Trabajador.longitud,
-            Trabajador.token  # 👈 agregamos el token aquí
+            Trabajador.token  # 👈 agregado token
         )
         .join(Servicios_Trabajadores, Servicio.id == Servicios_Trabajadores.servicio_id)
         .join(Trabajador, Trabajador.id == Servicios_Trabajadores.trabajador_id)
@@ -399,11 +399,12 @@ def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends
             "wsapp": row[5],
             "Latitud": row[6],
             "Longitud": row[7],
-            "token": row[8]  # 👈 se incluye el token en la respuesta
+            "token": row[8]  # 👈 incluimos token en el JSON
         }
         for row in consulta
     ]
     return {"trabajadores": resultado}
+
 #
 ####################################################
 @app.get("/Servicios/")
