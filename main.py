@@ -1,4 +1,4 @@
-""" Probado en SQlite el 7 de julio de 2025 y listo para migrar a PostGrade 
+""" Probar mapade tokens PostGrade 
 """
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Depends, status
@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import cloudinary
 import cloudinary.uploader
 import os
+import secrets
 
 cloudinary.config(
   cloud_name='dnlios4ua',
@@ -116,6 +117,7 @@ class Trabajador(Base):
     wsapp = Column(String, nullable=False)
     foto = Column(String, nullable=False)
     penales = Column(String, nullable=False)
+    token = Column(String, unique=True, index=True)
     servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
 
     #nuevos############### 19 / 6
@@ -312,14 +314,25 @@ def cargar_oficios(db: Session = Depends(get_db)):
     return {"mensaje": f"Se insertaron {len(oficios)} oficios"}
 
 
-@app.post("/registro/", status_code=status.HTTP_201_CREATED)
+#@app.post("/registro/", status_code=status.HTTP_201_CREATED)
 ############### podificado por gpt
-async def crear_registro_Trabajador(registro: TrabajadorBase, db: db_dependency):
-    db_registro = Trabajador(**registro.dict())
-    db.add(db_registro)
+#async def crear_registro_Trabajador(registro: TrabajadorBase, db: db_dependency):
+#   db_registro = Trabajador(**registro.dict())
+#    db.add(db_registro)
+#    db.commit()
+#    db.refresh(db_registro)
+#    return {"mensaje": "Registro exitoso", "id": db_registro.id}
+
+# Crear
+@app.post("/registro/")
+def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
+    token = secrets.token_hex(16)
+    nuevo = Trabajador(**trabajador.dict(), token=token)
+    db.add(nuevo)
     db.commit()
-    db.refresh(db_registro)
-    return {"mensaje": "Registro exitoso", "id": db_registro.id}
+    db.refresh(nuevo)
+    return {"id": nuevo.id, "token": token}
+
 ####################################################
 @app.get("/Servicios_React/")
 async def Servicios(db: Session = Depends(get_db)):
@@ -356,29 +369,14 @@ async def crear_Relacion_Trabajador_Servicio(registro: ServicioTrabajadorBase, d
     db.commit()
     return {"mensaje": "Relación creada correctamente"}
 ##################################################
-@app.get("/Listo_trabajadoresPorServicio/{titulo_servicio}")
-def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends(get_db)):
-    consulta = (
-        db.query(Servicio.titulo, Trabajador.id, Trabajador.nombre, Trabajador.penales, Trabajador.foto, Trabajador.wsapp, Trabajador.latitud, Trabajador.longitud)
-        .join(Servicios_Trabajadores, Servicio.id == Servicios_Trabajadores.servicio_id)
-        .join(Trabajador, Trabajador.id == Servicios_Trabajadores.trabajador_id)
-        .filter(Servicio.titulo == titulo_servicio)
-        .all()
-    )
-    resultado = [
-        {
-            "servicio": row[0],
-            "id": row[1],
-            "nombre": row[2],
-            "penales": row[3],
-            "foto": row[4],
-            "wsapp": row[5],
-            "Latitud": row[6],
-            "Longitud": row[7]
-        }
-        for row in consulta
-    ]
-    return {"trabajadores": resultado}
+# Listar
+@app.get("/Listo_trabajadoresPorServicio/{servicio}")
+def listar_trabajadores(servicio: str, db: Session = Depends(get_db)):
+    # 🔹 Aquí deberías filtrar por servicio si lo tenés relacionado
+    trabajadores = db.query(Trabajador).all()
+    return {"trabajadores": [{"id": t.id, "nombre": t.nombre, "penales": t.penales, "foto": t.foto, "wsapp": t.wsapp, "token": t.token} for t in trabajadores]}
+
+#
 ####################################################
 @app.get("/Servicios/")
 async def Servicios(db: Session = Depends(get_db)):
@@ -465,6 +463,7 @@ async def crear_tracking(tracking: TrackingCreate, db: Session = Depends(get_db)
 ###########F I N BackEnd #########################################from pydantic import BaseModel
 class DescripcionUpdate(BaseModel):
     descripcion: str
+    token: str
 
 @app.put("/trabajadoresa/{id_trabajador}/descripcion")
 def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Session = Depends(get_db)):
@@ -477,30 +476,24 @@ def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Ses
     return {"ok": True, "mensaje": "Descripción actualizada"}
 
 
-##################
-class DescripcionUpdate(BaseModel):
-    descripcion: str
+# Editar
+@app.patch("/trabajadores/{id}")
+def editar_trabajador(id: int, data: DescripcionUpdate, db: Session = Depends(get_db)):
+    t = db.query(Trabajador).filter(Trabajador.id == id).first()
+    if not t:
+        raise HTTPException(404, "Trabajador no encontrado")
+    if t.token != data.token:
+        raise HTTPException(403, "No autorizado")
+    t.penales = data.descripcion
+    db.commit()
+    db.refresh(t)
+    return {"ok": True, "msg": "Aviso actualizado"}
 
-@app.patch("/trabajadores/{trabajador_id}", response_model=TrabajadorPublic)
-def update_penales(
-    *,
-    session: Session = Depends(get_session),
-    trabajador_id: int,
-    descripcion: str = Query(...)
-):
-    print(f"🔔 PATCH recibido: trabajador_id={trabajador_id}, descripcion={descripcion}")
-    db_trabajador = session.get(Trabajador, trabajador_id)
-    if not db_trabajador:
-        raise HTTPException(status_code=404, detail="Trabajador not found")
 
-    db_trabajador.penales = descripcion
-    session.add(db_trabajador)
-    session.commit()
-    session.refresh(db_trabajador)
 
-    return db_trabajador
 
-####################
+
+
 @app.get("/ping")
 def ping():
     print("🔔 PINGA recibido")
@@ -563,34 +556,33 @@ def delete_foto(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 ####################
-@app.delete("/trabajadores/{idt}")
-def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
-    trabajador = db.query(Trabajador).filter(Trabajador.id == idt).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    ####################
+# Borrar
+@app.delete("/trabajadores/{id}")
+def borrar_trabajador(id: int, token: str = Query(...), db: Session = Depends(get_db)):
+    t = db.query(Trabajador).filter(Trabajador.id == id).first()
+    if not t:
+        raise HTTPException(404, "Trabajador no encontrado")
+    if t.token != token:
+        raise HTTPException(403, "No autorizado")
+        ####################
     # 2) Eliminar opiniones asociadas
-    opiniones = db.query(Opinion).filter(Opinion.trabajador_id == idt).all()
+    opiniones = db.query(Opinion).filter(Opinion.trabajador_id == id).all()
     if opiniones:
         for op in opiniones:
             db.delete(op)
      ####################
     # Agregado 29/8
         # 3) Si tiene foto, eliminarla en Cloudinary
-    if trabajador.foto:
+    if t.foto:
         try:
          # Tomar solo lo que está después del último "/" y antes de la extensión
-             public_id = trabajador.foto.split("/")[-1].split(".")[0]
+             public_id = t.foto.split("/")[-1].split(".")[0]
              result = cloudinary.uploader.destroy(public_id)
              print(f"⚠️ Foto Eliminada: {public_id} (result: {result})")
 
         except Exception as e:
              print(f"⚠️ Error al borrar foto en Cloudinary: {e}")
 
-    ####################
-
-    db.delete(trabajador)
+    db.delete(t)
     db.commit()
-    return {"detail": f"Trabajador {idt} eliminado correctamente, con su foto "}
-
-####################
+    return {"ok": True, "msg": "Trabajador eliminado"}
