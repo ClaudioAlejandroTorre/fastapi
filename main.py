@@ -370,13 +370,40 @@ async def crear_Relacion_Trabajador_Servicio(registro: ServicioTrabajadorBase, d
     return {"mensaje": "Relación creada correctamente"}
 ##################################################
 # Listar
-@app.get("/Listo_trabajadoresPorServicio/{servicio}")
-def listar_trabajadores(servicio: str, db: Session = Depends(get_db)):
-    # 🔹 Aquí deberías filtrar por servicio si lo tenés relacionado
-    
-    trabajadores = db.query(Trabajador).filter(Trabajador.servicios == servicio).all()
-    return {"trabajadores": [{"id": t.id, "nombre": t.nombre, "penales": t.penales, "foto": t.foto, "wsapp": t.wsapp, "token": t.token} for t in trabajadores]}
-
+@app.get("/Listo_trabajadoresPorServicio/{titulo_servicio}")
+def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends(get_db)):
+    consulta = (
+        db.query(
+            Servicio.titulo,
+            Trabajador.id,
+            Trabajador.nombre,
+            Trabajador.penales,
+            Trabajador.foto,
+            Trabajador.wsapp,
+            Trabajador.latitud,
+            Trabajador.longitud,
+            Trabajador.token  # 👈 agregamos el token aquí
+        )
+        .join(Servicios_Trabajadores, Servicio.id == Servicios_Trabajadores.servicio_id)
+        .join(Trabajador, Trabajador.id == Servicios_Trabajadores.trabajador_id)
+        .filter(Servicio.titulo == titulo_servicio)
+        .all()
+    )
+    resultado = [
+        {
+            "servicio": row[0],
+            "id": row[1],
+            "nombre": row[2],
+            "penales": row[3],
+            "foto": row[4],
+            "wsapp": row[5],
+            "Latitud": row[6],
+            "Longitud": row[7],
+            "token": row[8]  # 👈 se incluye el token en la respuesta
+        }
+        for row in consulta
+    ]
+    return {"trabajadores": resultado}
 #
 ####################################################
 @app.get("/Servicios/")
