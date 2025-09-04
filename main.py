@@ -374,7 +374,7 @@ async def crear_Relacion_Trabajador_Servicio(registro: ServicioTrabajadorBase, d
 def listar_trabajadores(servicio: str, db: Session = Depends(get_db)):
     # 🔹 Aquí deberías filtrar por servicio si lo tenés relacionado
     
-    trabajadores = db.query(Trabajador).filter(Trabajador.servicio == servicio).all()
+    trabajadores = db.query(Trabajador).filter(Trabajador.servicios == servicio).all()
     return {"trabajadores": [{"id": t.id, "nombre": t.nombre, "penales": t.penales, "foto": t.foto, "wsapp": t.wsapp, "token": t.token} for t in trabajadores]}
 
 #
