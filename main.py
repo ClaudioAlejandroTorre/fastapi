@@ -504,6 +504,7 @@ def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Ses
     db.commit()
     return {"ok": True, "mensaje": "Descripción actualizada"}
 
+from pydantic import BaseModel
 class ActualizarDescripcion(BaseModel):
     descripcion: str
     token: str
