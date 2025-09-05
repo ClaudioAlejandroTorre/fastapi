@@ -587,10 +587,7 @@ def delete_foto(
 ####################
 # Borrar
 @app.delete("/trabajadores/{idt}")
-def eliminar_trabajador(idt: int, payload: dict, db: Session = Depends(get_db)):
-    token = payload.get("token")
-
-    # 1. Validar token
+def eliminar_trabajador(idt: int, token: str, db: Session = Depends(get_db)):
     trabajador = db.query(Trabajador).filter(
         Trabajador.id == idt,
         Trabajador.token == token
@@ -599,26 +596,19 @@ def eliminar_trabajador(idt: int, payload: dict, db: Session = Depends(get_db)):
     if not trabajador:
         raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
 
-    # 2. Eliminar opiniones asociadas
+    # 1. Eliminar opiniones asociadas
     db.query(Opinion).filter(Opinion.trabajador_id == idt).delete()
 
-    # 3. Eliminar filas en servicio_trabajadores
+    # 2. Eliminar filas en servicio_trabajadores
     db.query(Servicios_Trabajadores).filter(
         Servicios_Trabajadores.trabajador_id == idt
     ).delete()
 
-    # 4. Borrar foto si existe
-    if trabajador.foto:
-        try:
-            # Si usás Cloudinary
-            public_id = trabajador.foto.split("/")[-1].split(".")[0]
-            result = cloudinary.uploader.destroy(public_id)
-            print(f"🗑 Foto eliminada de Cloudinary: {result}")
-        except Exception as e:
-            print(f"⚠️ Error al eliminar foto en Cloudinary: {e}")
-
-    # 5. Eliminar trabajador
+    # 3. Eliminar trabajador
     db.delete(trabajador)
     db.commit()
 
-    return {"ok": True, "msg": f"Trabajador {idt} y sus datos asociados eliminados"}
+    return {"msg": "Trabajador eliminado correctamente"}
+
+
+   
