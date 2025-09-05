@@ -586,32 +586,39 @@ def delete_foto(
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 ####################
 # Borrar
-@app.delete("/trabajadores/{id}")
-def borrar_trabajador(id: int, token: str = Query(...), db: Session = Depends(get_db)):
-    t = db.query(Trabajador).filter(Trabajador.id == id).first()
-    if not t:
-        raise HTTPException(404, "Trabajador no encontrado")
-    if t.token != token:
-        raise HTTPException(403, "No autorizado")
-        ####################
-    # 2) Eliminar opiniones asociadas
-    opiniones = db.query(Opinion).filter(Opinion.trabajador_id == id).all()
-    if opiniones:
-        for op in opiniones:
-            db.delete(op)
-     ####################
-    # Agregado 29/8
-        # 3) Si tiene foto, eliminarla en Cloudinary
-    if t.foto:
+@app.delete("/trabajadores/{idt}")
+def eliminar_trabajador(idt: int, payload: dict, db: Session = Depends(get_db)):
+    token = payload.get("token")
+
+    # 1. Validar token
+    trabajador = db.query(Trabajador).filter(
+        Trabajador.id == idt,
+        Trabajador.token == token
+    ).first()
+
+    if not trabajador:
+        raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
+
+    # 2. Eliminar opiniones asociadas
+    db.query(Opinion).filter(Opinion.trabajador_id == idt).delete()
+
+    # 3. Eliminar filas en servicio_trabajadores
+    db.query(Servicios_Trabajadores).filter(
+        Servicios_Trabajadores.trabajador_id == idt
+    ).delete()
+
+    # 4. Borrar foto si existe
+    if trabajador.foto:
         try:
-         # Tomar solo lo que está después del último "/" y antes de la extensión
-             public_id = t.foto.split("/")[-1].split(".")[0]
-             result = cloudinary.uploader.destroy(public_id)
-             print(f"⚠️ Foto Eliminada: {public_id} (result: {result})")
-
+            # Si usás Cloudinary
+            public_id = trabajador.foto.split("/")[-1].split(".")[0]
+            result = cloudinary.uploader.destroy(public_id)
+            print(f"🗑 Foto eliminada de Cloudinary: {result}")
         except Exception as e:
-             print(f"⚠️ Error al borrar foto en Cloudinary: {e}")
+            print(f"⚠️ Error al eliminar foto en Cloudinary: {e}")
 
-    db.delete(t)
+    # 5. Eliminar trabajador
+    db.delete(trabajador)
     db.commit()
-    return {"ok": True, "msg": "Trabajador eliminado"}
+
+    return {"ok": True, "msg": f"Trabajador {idt} y sus datos asociados eliminados"}
