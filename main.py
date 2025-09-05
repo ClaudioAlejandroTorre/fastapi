@@ -490,19 +490,7 @@ async def crear_tracking(tracking: TrackingCreate, db: Session = Depends(get_db)
     db.refresh(nuevo_tracking)
     return {"mensaje": "Tracking registrado", "id": nuevo_tracking.id}
 ###########F I N BackEnd #########################################from pydantic import BaseModel
-class DescripcionUpdate(BaseModel):
-    descripcion: str
-    token: str
 
-@app.put("/trabajadoresa/{id_trabajador}/descripcion")
-def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Session = Depends(get_db)):
-    t = db.query(Trabajador).filter(Trabajador.id == id_trabajador).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-
-    t.penales = body.descripcion  # ← tu front usa 'penales' como descripción
-    db.commit()
-    return {"ok": True, "mensaje": "Descripción actualizada"}
 
 from pydantic import BaseModel
 class ActualizarDescripcion(BaseModel):
@@ -525,11 +513,12 @@ def actualizar_descripcion(
     if not trabajador:
         raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
 
-    trabajador.descripcion = payload.descripcion
+    # ⚠️ Guardar en la columna correcta
+    trabajador.penales = payload.descripcion
     db.commit()
     db.refresh(trabajador)
 
-    return {"msg": "Descripción actualizada", "descripcion": trabajador.descripcion}
+    return {"msg": "Descripción actualizada", "penales": trabajador.penales}
 
 
 
