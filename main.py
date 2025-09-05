@@ -504,28 +504,32 @@ def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Ses
     db.commit()
     return {"ok": True, "mensaje": "Descripción actualizada"}
 
-
+class ActualizarDescripcion(BaseModel):
+    descripcion: str
+    token: str
 # Editar
+from fastapi import Body
+
 @app.patch("/trabajadores/{idt}")
 def actualizar_descripcion(
     idt: int,
-    descripcion: str,
-    token: str,
+    payload: ActualizarDescripcion = Body(...),
     db: Session = Depends(get_db)
 ):
     trabajador = db.query(Trabajador).filter(
         Trabajador.id == idt,
-        Trabajador.token == token
+        Trabajador.token == payload.token
     ).first()
 
     if not trabajador:
         raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
 
-    trabajador.descripcion = descripcion
+    trabajador.descripcion = payload.descripcion
     db.commit()
     db.refresh(trabajador)
 
     return {"msg": "Descripción actualizada", "descripcion": trabajador.descripcion}
+
 
 
 
