@@ -589,29 +589,52 @@ def delete_foto(
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 ####################
 # Borrar
+cloudinary.config(
+  cloud_name='dnlios4ua',
+  api_key='747777351831491',
+  api_secret='mvqCvHtSJYQHgKhtEwAfsHw93FI',
+  secure=True
+)
+from pydantic import BaseModel
+
+class TokenPayload(BaseModel):
+    token: str
 @app.delete("/trabajadores/{idt}")
-def eliminar_trabajador(idt: int, token: str, db: Session = Depends(get_db)):
+def eliminar_trabajador(
+    idt: int,
+    payload: TokenPayload = Body(...),
+    db: Session = Depends(get_db)
+):
+    # Validar token
     trabajador = db.query(Trabajador).filter(
         Trabajador.id == idt,
-        Trabajador.token == token
+        Trabajador.token == payload.token
     ).first()
 
     if not trabajador:
         raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
 
-    # 1. Eliminar opiniones asociadas
+    # Eliminar foto de Cloudinary si existe
+    if trabajador.foto:
+        try:
+            cloudinary.uploader.destroy(trabajador.foto)
+        except Exception as e:
+            print(f"⚠️ Error eliminando foto en Cloudinary: {e}")
+
+    # Eliminar opiniones asociadas
     db.query(Opinion).filter(Opinion.trabajador_id == idt).delete()
 
-    # 2. Eliminar filas en servicio_trabajadores
+    # Eliminar filas en servicio_trabajadores
     db.query(Servicios_Trabajadores).filter(
         Servicios_Trabajadores.trabajador_id == idt
     ).delete()
 
-    # 3. Eliminar trabajador
+    # Eliminar trabajador
     db.delete(trabajador)
     db.commit()
 
     return {"msg": "Trabajador eliminado correctamente"}
+
 
 
    
