@@ -506,17 +506,26 @@ def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Ses
 
 
 # Editar
-@app.patch("/trabajadores/{id}")
-def editar_trabajador(id: int, data: DescripcionUpdate, db: Session = Depends(get_db)):
-    t = db.query(Trabajador).filter(Trabajador.id == id).first()
-    if not t:
-        raise HTTPException(404, "Trabajador no encontrado")
-    if t.token != data.token:
-        raise HTTPException(403, "No autorizado")
-    t.penales = data.descripcion
+@app.patch("/trabajadores/{idt}")
+def actualizar_descripcion(
+    idt: int,
+    descripcion: str,
+    token: str,
+    db: Session = Depends(get_db)
+):
+    trabajador = db.query(Trabajador).filter(
+        Trabajador.id == idt,
+        Trabajador.token == token
+    ).first()
+
+    if not trabajador:
+        raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
+
+    trabajador.descripcion = descripcion
     db.commit()
-    db.refresh(t)
-    return {"ok": True, "msg": "Aviso actualizado"}
+    db.refresh(trabajador)
+
+    return {"msg": "Descripción actualizada", "descripcion": trabajador.descripcion}
 
 
 
