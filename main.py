@@ -569,32 +569,32 @@ def update_foto(
 
 
 ####################
-from fastapi import Body
+##from fastapi import Body
 
-class DeleteFotoRequest(BaseModel):
-    foto_url: str
+#class DeleteFotoRequest(BaseModel):
+  #  foto_url: str
 
-@app.delete("/trabajadores/foto")
-def delete_foto(
-    payload: DeleteFotoRequest = Body(...)
-):
-    try:
-        import cloudinary.uploader
-        public_id = payload.foto_url.split("/")[-1].split(".")[0]
-        result = cloudinary.uploader.destroy(public_id)
-        if result.get("result") not in ("ok", "not_found"):
-            raise HTTPException(status_code=400, detail=f"Error eliminando foto: {result}")
-        return {"msg": "Foto eliminada correctamente", "public_id": public_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
+#@app.delete("/trabajadores/foto")
+#def delete_foto(
+#    payload: DeleteFotoRequest = Body(...)
+#):
+    #try:
+       #> import cloudinary.uploader
+        #public_id = payload.foto_url.split("/")[-1].split(".")[0]
+        #result = cloudinary.uploader.destroy(public_id)
+        #if result.get("result") not in ("ok", "not_found"):
+        #    raise HTTPException(status_code=400, detail=f"Error eliminando foto: {result}")
+        #return {"msg": "Foto eliminada correctamente", "public_id": public_id}
+    #except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 ####################
 # Borrar
-cloudinary.config(
-  cloud_name='dnlios4ua',
-  api_key='747777351831491',
-  api_secret='mvqCvHtSJYQHgKhtEwAfsHw93FI',
-  secure=True
-)
+#cloudinary.config(
+  #cloud_name='dnlios4ua',
+  #api_key='747777351831491',
+  #api_secret='mvqCvHtSJYQHgKhtEwAfsHw93FI',
+ # secure=True
+#)
 from pydantic import BaseModel
 
 class TokenPayload(BaseModel):
@@ -615,7 +615,7 @@ def eliminar_trabajador(
         raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
 
     # Eliminar foto de Cloudinary si existe
-    if trabajador.foto:
+    if Trabajador.foto:
         try:
 
             public_id = payload.trabajador.foto.split("/")[-1].split(".")[0]
