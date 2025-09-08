@@ -19,6 +19,7 @@ class Trabajador(Base):
     __tablename__ = "trabajadores"
 
     id = Column(Integer, primary_key=True, index=True)
+    dni = Column(String, nullable=False)   # <- NOT NULL
     nombre = Column(String, default="")
     wsapp = Column(String, default="")
     penales = Column(String, default="")   # descripción
