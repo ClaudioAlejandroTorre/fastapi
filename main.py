@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, Float, create_engine
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm import sessionmaker, Session
@@ -45,6 +45,20 @@ Base.metadata.create_all(bind=engine)
 class TrabajadorCreate(BaseModel):
     nombre: Optional[str] = ""
     wsapp: Optional[str] = ""
+
+class Servicios_Trabajadores(Base):
+    __tablename__ = 'servicios_trabajadores'
+    id = Column(Integer, primary_key=True)
+    # clave compuesta por el servicio + el trabajador
+    #SQLite does not support autoincrement for composite primary keys
+    servicio_id = Column ('servicio_id', ForeignKey('servicios.id'), primary_key=True)
+    trabajador_id = Column('trabajador_id', ForeignKey('trabajadores.id'), primary_key=True)
+    precioxhora = Column ('precioxhora',Integer)
+     #nuevos############### 28 / 3
+    usuarios = relationship("Usuario", secondary="usuarios_servicios_trabajadores", back_populates='servicios_trabajadores')  
+    #trabajadores = relationship("Trabajador", secondary="servicios", back_populates='servicios_trabajadores')  
+
+
 
 class AvisoUpdate(BaseModel):
     descripcion: Optional[str] = None
