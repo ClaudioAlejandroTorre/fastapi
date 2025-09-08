@@ -5,8 +5,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 import random
 import string
 
-DATABASE_URL = "postgresql://usuario:password@host:puerto/dbname"
-
+DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
