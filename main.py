@@ -1,148 +1,88 @@
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
-from typing import List, Optional
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, joinedload
-from sqlalchemy.orm import sessionmaker, Session
-import uuid
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+import os, uuid
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # o tu dominio si querés restringir
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# -------------------------------------------------
+# 🔹 Configuración Base de Datos (Postgres en Render)
+# -------------------------------------------------
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://usuario:password@host:5432/dbname"  # reemplazar por Render
 )
-# ----- DATABASE -----
-DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
+
 engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ----- MODELOS -----
+# -------------------------------------------------
+# 🔹 Modelo
+# -------------------------------------------------
 class Trabajador(Base):
-    __tablename__ = 'trabajadores'
-    id = Column(Integer, primary_key=True)
-    nombre = Column(String, nullable=False)
-    dni = Column(String, nullable=False)
-    correoElec = Column(String, nullable=False)
-    direccion = Column(String, nullable=False)
-    localidad = Column(String, nullable=False)
-    latitud = Column(Float)
-    longitud = Column(Float)
-    wsapp = Column(String, nullable=False)
-    foto = Column(String, nullable=False)
-    penales = Column(String, nullable=False)
-    servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
+    __tablename__ = "trabajadores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, default="")
+    wsapp = Column(String, default="")
+    penales = Column(String, default="")   # descripción
     clave_unica = Column(String, unique=True, index=True)
 
+# Crear tablas (solo primera vez)
 Base.metadata.create_all(bind=engine)
 
-# ----- Pydantic Schemas -----
-class TrabajadorCreate(BaseModel):
-    nombre: Optional[str] = ""
-    wsapp: Optional[str] = ""
+# -------------------------------------------------
+# 🔹 FastAPI App
+# -------------------------------------------------
+app = FastAPI()
 
-class Servicios_Trabajadores(Base):
-    __tablename__ = 'servicios_trabajadores'
-    id = Column(Integer, primary_key=True)
-    # clave compuesta por el servicio + el trabajador
-    #SQLite does not support autoincrement for composite primary keys
-    servicio_id = Column ('servicio_id', ForeignKey('servicios.id'), primary_key=True)
-    trabajador_id = Column('trabajador_id', ForeignKey('trabajadores.id'), primary_key=True)
-    precioxhora = Column ('precioxhora',Integer)
-     #nuevos############### 28 / 3
-    usuarios = relationship("Usuario", secondary="usuarios_servicios_trabajadores", back_populates='servicios_trabajadores')  
-    #trabajadores = relationship("Trabajador", secondary="servicios", back_populates='servicios_trabajadores')  
-
-
-
-class AvisoUpdate(BaseModel):
-    descripcion: Optional[str] = None
-    foto_base64: Optional[str] = None
-
-class AvisoOut(BaseModel):
-    id: int
-    nombre: str
-    wsapp: str
-    aviso: str
-    foto: Optional[str] = None
-    clave_unica: str
-
-    class Config:
-        orm_mode = True
-
-# ----- DEPENDENCY -----
+# Dependencia de DB
 def get_db():
-    db = Session(bind=engine)
+    db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# ----- APP -----
-app = FastAPI()
+# -------------------------------------------------
+# 🔹 Endpoints
+# -------------------------------------------------
 
-# ----- ENDPOINTS -----
-
-# Registro nuevo trabajador
 @app.post("/registro/")
-def crear_trabajador(db: Session = Depends(get_db)):
-    clave_unica = str(uuid.uuid4())[:8]
-    nuevo = Trabajador(clave_unica=clave_unica)
+def registro(db: Session = Depends(get_db)):
+    """Registrar un nuevo trabajador y generar clave única"""
+    clave = str(uuid.uuid4())[:8]  # clave corta de 8 caracteres
+    nuevo = Trabajador(clave_unica=clave, nombre="Nuevo", wsapp="")
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
     return {"clave_unica": nuevo.clave_unica}
 
-# Login con clave única
-@app.get("/login_unico/{clave_unica}")
-def login_unico(clave_unica: str, db: Session = Depends(get_db)):
-    trabajador = db.query(Trabajador).filter_by(clave_unica=clave_unica).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Clave no encontrada")
+@app.get("/login_unico/{clave}")
+def login_unico(clave: str, db: Session = Depends(get_db)):
+    """Login con clave única"""
+    t = db.query(Trabajador).filter(Trabajador.clave_unica == clave).first()
+    if not t:
+        raise HTTPException(404, "Clave no encontrada")
     return {
-        "id": trabajador.id,
-        "nombre": trabajador.nombre,
-        "wsapp": trabajador.wsapp,
-        "aviso": trabajador.aviso,
-        "foto": trabajador.foto,
-        "clave_unica": trabajador.clave_unica
+        "id": t.id,
+        "nombre": t.nombre,
+        "wsapp": t.wsapp,
+        "penales": t.penales,
+        "clave_unica": t.clave_unica,
     }
 
-# Listar todos los avisos
-@app.get("/avisos/", response_model=List[AvisoOut])
-def listar_avisos(db: Session = Depends(get_db)):
-    trabajadores = db.query(Trabajador).all()
-    return trabajadores
+@app.get("/trabajadores/")
+def listar(db: Session = Depends(get_db)):
+    """Listar todos los trabajadores"""
+    return db.query(Trabajador).all()
 
-# Editar aviso propio
-@app.patch("/trabajadores/{clave_unica}")
-def editar_aviso(clave_unica: str, data: AvisoUpdate, db: Session = Depends(get_db)):
-    trabajador = db.query(Trabajador).filter_by(clave_unica=clave_unica).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Clave no encontrada")
-
-    if data.descripcion is not None:
-        trabajador.aviso = data.descripcion
-    if data.foto_base64 is not None:
-        trabajador.foto = data.foto_base64  # puede almacenar base64 o URL
-
+@app.patch("/trabajadores/{clave}")
+def actualizar_descripcion(clave: str, descripcion: str, db: Session = Depends(get_db)):
+    """Actualizar solo la descripción del trabajador dueño de la clave"""
+    t = db.query(Trabajador).filter(Trabajador.clave_unica == clave).first()
+    if not t:
+        raise HTTPException(404, "Clave no encontrada")
+    t.penales = descripcion
     db.commit()
-    db.refresh(trabajador)
-    return {"mensaje": "Aviso actualizado"}
-
-# Eliminar aviso propio
-@app.delete("/trabajadores/{clave_unica}")
-def eliminar_aviso(clave_unica: str, db: Session = Depends(get_db)):
-    trabajador = db.query(Trabajador).filter_by(clave_unica=clave_unica).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Clave no encontrada")
-
-    trabajador.aviso = ""
-    trabajador.foto = None
-    db.commit()
-    return {"mensaje": "Aviso eliminado"}
+    db.refresh(t)
+    return {"msg": "Descripción actualizada", "penales": t.penales}
