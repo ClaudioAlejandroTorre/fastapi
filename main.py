@@ -2,26 +2,35 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
 from sqlalchemy import create_engine, Column, Integer, String, Text
-from sqlalchemy.orm import sessionmaker, declarative_base
-import random, string
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import random
+import string
 
+# ------------------------
+# Configuración Base de Datos
+# ------------------------
 DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
+# ------------------------
+# Modelos
+# ------------------------
 class Trabajador(Base):
     __tablename__ = "trabajadores"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
-    clave_unica = Column(String, unique=True, nullable=False)
-    aviso = Column(Text, default="")  # solo 1 aviso por trabajador
+    clave_unica = Column(String, unique=True, index=True, nullable=False)
+    aviso = Column(Text, default="")  # Solo 1 aviso editable por trabajador
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
-
+# ------------------------
+# Schemas
+# ------------------------
 class RegistroIn(BaseModel):
     nombre: str
 
@@ -30,47 +39,54 @@ class AvisoIn(BaseModel):
     aviso: str
 
 class AvisoOut(BaseModel):
-    nombre: str
+    clave_unica: str
     aviso: str
-    editable: bool
 
-def generar_clave_unica():
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=7))
+# ------------------------
+# App FastAPI
+# ------------------------
+app = FastAPI()
+
+# Generar clave única aleatoria
+def generar_clave_unica(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+# ------------------------
+# Endpoints
+# ------------------------
 
 @app.post("/registro/")
-def registro(data: RegistroIn):
+def registrar_trabajador(registro: RegistroIn):
     db = SessionLocal()
+    # Verificar si ya existe trabajador con ese nombre (o criterio)
+    trabajador_existente = db.query(Trabajador).filter_by(nombre=registro.nombre).first()
+    if trabajador_existente:
+        return {"clave_unica": trabajador_existente.clave_unica}
+
+    # Crear nuevo trabajador con clave única
     clave = generar_clave_unica()
-    trabajador = Trabajador(nombre=data.nombre, clave_unica=clave)
-    db.add(trabajador)
+    nuevo = Trabajador(nombre=registro.nombre, clave_unica=clave)
+    db.add(nuevo)
     db.commit()
-    db.refresh(trabajador)
+    db.refresh(nuevo)
     db.close()
     return {"clave_unica": clave}
 
-@app.post("/guardar_aviso/")
-def guardar_aviso(data: AvisoIn):
+@app.post("/aviso/")
+def guardar_aviso(aviso_in: AvisoIn):
     db = SessionLocal()
-    trabajador = db.query(Trabajador).filter_by(clave_unica=data.clave_unica).first()
+    trabajador = db.query(Trabajador).filter_by(clave_unica=aviso_in.clave_unica).first()
     if not trabajador:
         db.close()
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    trabajador.aviso = data.aviso
+    trabajador.aviso = aviso_in.aviso
     db.commit()
-    db.refresh(trabajador)
     db.close()
-    return {"status": "ok"}
+    return {"mensaje": "Aviso guardado correctamente"}
 
-@app.get("/avisos/{clave_unica}", response_model=List[AvisoOut])
-def ver_avisos(clave_unica: str):
+@app.get("/avisos/", response_model=List[AvisoOut])
+def listar_avisos():
     db = SessionLocal()
-    todos = db.query(Trabajador).all()
-    salida = []
-    for t in todos:
-        salida.append(AvisoOut(
-            nombre=t.nombre,
-            aviso=t.aviso,
-            editable=(t.clave_unica == clave_unica)
-        ))
+    avisos = db.query(Trabajador).filter(Trabajador.aviso != "").all()
     db.close()
-    return salida
+    return [{"clave_unica": t.clave_unica, "aviso": t.aviso} for t in avisos]
