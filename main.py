@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Float, create_engine
+from sqlalchemy.ext.declarative import declarative_base, relationship, joinedload
 from sqlalchemy.orm import sessionmaker, Session
 import uuid
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,12 +23,19 @@ Base = declarative_base()
 
 # ----- MODELOS -----
 class Trabajador(Base):
-    __tablename__ = "trabajadores"
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String, default="")     # opcional
-    wsapp = Column(String, default="")
-    aviso = Column(String, default="")
-    foto = Column(String, nullable=True)    # URL o base64
+    __tablename__ = 'trabajadores'
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String, nullable=False)
+    dni = Column(String, nullable=False)
+    correoElec = Column(String, nullable=False)
+    direccion = Column(String, nullable=False)
+    localidad = Column(String, nullable=False)
+    latitud = Column(Float)
+    longitud = Column(Float)
+    wsapp = Column(String, nullable=False)
+    foto = Column(String, nullable=False)
+    penales = Column(String, nullable=False)
+    servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
     clave_unica = Column(String, unique=True, index=True)
 
 Base.metadata.create_all(bind=engine)
