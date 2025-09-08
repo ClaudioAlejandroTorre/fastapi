@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy import Column, Integer, String, Float, create_engine
-from sqlalchemy.ext.declarative import declarative_base, relationship, joinedload
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm import sessionmaker, Session
 import uuid
 from fastapi.middleware.cors import CORSMiddleware
