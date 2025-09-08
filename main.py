@@ -5,11 +5,20 @@ from sqlalchemy import Column, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import uuid
+from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # o tu dominio si querés restringir
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # ----- DATABASE -----
-SQLALCHEMY_DATABASE_URL = "sqlite:///./trabajadores.db"  # 🔧 cambiar a PostgreSQL si querés
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
+engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 
 # ----- MODELOS -----
@@ -46,7 +55,7 @@ class AvisoOut(BaseModel):
 
 # ----- DEPENDENCY -----
 def get_db():
-    db = SessionLocal()
+    db = Session(bind=engine)
     try:
         yield db
     finally:
@@ -59,17 +68,13 @@ app = FastAPI()
 
 # Registro nuevo trabajador
 @app.post("/registro/")
-def crear_trabajador(trabajador: TrabajadorCreate = Depends(), db: Session = Depends(get_db)):
-    clave_unica = str(uuid.uuid4())[:8]  # 8 caracteres
-    nuevo = Trabajador(
-        nombre=trabajador.nombre,
-        wsapp=trabajador.wsapp,
-        clave_unica=clave_unica
-    )
+def crear_trabajador(db: Session = Depends(get_db)):
+    clave_unica = str(uuid.uuid4())[:8]
+    nuevo = Trabajador(clave_unica=clave_unica)
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
-    return {"clave_unica": nuevo.clave_unica, "mensaje": "Trabajador creado"}
+    return {"clave_unica": nuevo.clave_unica}
 
 # Login con clave única
 @app.get("/login_unico/{clave_unica}")
