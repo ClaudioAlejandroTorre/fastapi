@@ -6,14 +6,11 @@ import os, uuid
 # -------------------------------------------------
 # 🔹 Configuración Base de Datos (Postgres en Render)
 # -------------------------------------------------
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg2://usuario:password@host:5432/dbname"  # reemplazar por Render
-)
-
+DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
 engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Make the DeclarativeMeta
 Base = declarative_base()
+
 
 # -------------------------------------------------
 # 🔹 Modelo
@@ -35,9 +32,8 @@ Base.metadata.create_all(bind=engine)
 # -------------------------------------------------
 app = FastAPI()
 
-# Dependencia de DB
 def get_db():
-    db = SessionLocal()
+    db = Session(bind=engine)
     try:
         yield db
     finally:
