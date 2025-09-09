@@ -29,6 +29,7 @@ class Trabajador(Base):
     nombre = Column(String, index=True)
     dni = Column(String, index=True)  # 👈 ahora obligatorio en DB
     wsapp = Column(String, nullable=False, default="")  # <--- obligatorio
+    penales = Column(String, nullable=False, default="")  # <--- obligatorio
     clave_unica = Column(String, unique=True, index=True)
 
 Base.metadata.create_all(bind=engine)
@@ -65,8 +66,8 @@ def crear_trabajador(trabajador: TrabajadorCreate):
         nuevo = Trabajador(
             nombre=trabajador.nombre,
             dni=trabajador.dni,
-            penales=trabajador.penales,
-            wsapp=trabajador.wsapp or "",  # <--- nunca NULL
+            wsapp=trabajador.wsapp or "",
+            penales=trabajador.penales or "",
             clave_unica=clave_unica
         )
         db.add(nuevo)
