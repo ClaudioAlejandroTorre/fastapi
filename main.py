@@ -10,7 +10,9 @@ import string
 # ------------------------
 # Configuración Base de Datos
 # ------------------------
-DATABASE_URL = "sqlite:///./trabajadores.db"  # Cambiar a PostgreSQL si se desea
+#DATABASE_URL = "sqlite:///./trabajadores.db"  # Cambiar a PostgreSQL si se desea
+# SQLite local en la carpeta del proyecto
+DATABASE_URL = "sqlite:///C:/Users/claud/AppData/Local/Programs/Python/Python313/ProyectoApi/trabajadores.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
