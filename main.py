@@ -66,3 +66,11 @@ def crear_trabajador(trabajador: TrabajadorCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(nuevo)
     return nuevo
+# -------------------------------------------
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Backend FastAPI corriendo en Render 🚀"}
