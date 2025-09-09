@@ -38,6 +38,7 @@ class TrabajadorCreate(BaseModel):
     nombre: str
     dni: str
     wsapp: str
+    penales: str
 
 class TrabajadorOut(BaseModel):
     nombre: str
@@ -64,6 +65,7 @@ def crear_trabajador(trabajador: TrabajadorCreate):
         nuevo = Trabajador(
             nombre=trabajador.nombre,
             dni=trabajador.dni,
+            penales=trabajador.penales,
             wsapp=trabajador.wsapp or "",  # <--- nunca NULL
             clave_unica=clave_unica
         )
