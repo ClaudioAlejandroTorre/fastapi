@@ -1,80 +1,92 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, create_engine
+from typing import List
+from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from fastapi.middleware.cors import CORSMiddleware
-import uuid
+from sqlalchemy.orm import sessionmaker
+import random
+import string
 
-DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# ------------------------
+# Configuración Base de Datos
+# ------------------------
+DATABASE_URL = "sqlite:///./trabajadores.db"  # Cambiar a PostgreSQL si se desea
 
-
-# Make the DeclarativeMeta
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['*'],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# ------------------ MODELO DB ------------------
+# ------------------------
+# Modelos
+# ------------------------
 class Trabajador(Base):
     __tablename__ = "trabajadores"
     id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String, index=True)
-    dni = Column(String, index=True)  # 👈 ahora obligatorio en DB
-    wsapp = Column(String, nullable=False, default="")  # <--- obligatorio
-    penales = Column(String, nullable=False, default="")  # <--- obligatorio
-    clave_unica = Column(String, unique=True, index=True)
+    nombre = Column(String, nullable=False)
+    clave_unica = Column(String, unique=True, index=True, nullable=False)
+    aviso = Column(Text, default="")  # Solo 1 aviso editable por trabajador
 
 Base.metadata.create_all(bind=engine)
 
-# ------------------ SCHEMAS ------------------
-class TrabajadorCreate(BaseModel):
+# ------------------------
+# Schemas
+# ------------------------
+class RegistroIn(BaseModel):
     nombre: str
-    dni: str
-    wsapp: str
-    penales: str
 
-class TrabajadorOut(BaseModel):
-    nombre: str
-    dni: str
+class AvisoIn(BaseModel):
     clave_unica: str
+    aviso: str
 
-# ------------------ DEPENDENCIA DB ------------------
-def get_db():
-    db = Session(bind=engine)
-    try:
-        yield db
-    finally:
-        db.close()
-#--------------------------------------------
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "Backend FastAPI corriendo en Render 🚀"}
-# ------------------ ENDPOINT ------------------
+class AvisoOut(BaseModel):
+    clave_unica: str
+    aviso: str
+
+# ------------------------
+# App FastAPI
+# ------------------------
+app = FastAPI()
+
+# Generar clave única aleatoria
+def generar_clave_unica(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+# ------------------------
+# Endpoints
+# ------------------------
+
 @app.post("/registro/")
-def crear_trabajador(trabajador: TrabajadorCreate):
+def registrar_trabajador(registro: RegistroIn):
     db = SessionLocal()
-    try:
-        clave_unica = uuid.uuid4().hex[:8]
-        nuevo = Trabajador(
-            nombre=trabajador.nombre,
-            dni=trabajador.dni,
-            wsapp=trabajador.wsapp or "",
-            penales=trabajador.penales or "",
-            clave_unica=clave_unica
-        )
-        db.add(nuevo)
-        db.commit()
-        db.refresh(nuevo)
-        return {"id": nuevo.id, "clave_unica": clave_unica}
-    finally:
-        db.close()
+    # Verificar si ya existe trabajador con ese nombre (o criterio)
+    trabajador_existente = db.query(Trabajador).filter_by(nombre=registro.nombre).first()
+    if trabajador_existente:
+        return {"clave_unica": trabajador_existente.clave_unica}
 
-# -------------------------------------------
+    # Crear nuevo trabajador con clave única
+    clave = generar_clave_unica()
+    nuevo = Trabajador(nombre=registro.nombre, clave_unica=clave)
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    db.close()
+    return {"clave_unica": clave}
+
+@app.post("/aviso/")
+def guardar_aviso(aviso_in: AvisoIn):
+    db = SessionLocal()
+    trabajador = db.query(Trabajador).filter_by(clave_unica=aviso_in.clave_unica).first()
+    if not trabajador:
+        db.close()
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
+    trabajador.aviso = aviso_in.aviso
+    db.commit()
+    db.close()
+    return {"mensaje": "Aviso guardado correctamente"}
+
+@app.get("/avisos/", response_model=List[AvisoOut])
+def listar_avisos():
+    db = SessionLocal()
+    avisos = db.query(Trabajador).filter(Trabajador.aviso != "").all()
+    db.close()
+    return [{"clave_unica": t.clave_unica, "aviso": t.aviso} for t in avisos]
