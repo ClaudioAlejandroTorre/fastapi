@@ -94,29 +94,30 @@ def listar_avisos():
     return [{"clave_unica": t.clave_unica, "aviso": t.aviso} for t in avisos]
 
 from fastapi import FastAPI, HTTPException
-from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Trabajador  # tu modelo de SQLAlchemy
+from typing import List
+from models import Trabajador  # tu clase ya definida
 
 app = FastAPI()
 
-# Engine y sesión (ajusta tu URL de SQLite)
+# --- mismo engine y sesión que usas en /avisos/ ---
 engine = create_engine("sqlite:///trabajadores.db", connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(bind=engine)
 
+# --- endpoint de login por clave única ---
 @app.get("/login_unico/{clave}")
 def login_unico(clave: str):
-    db: Session = SessionLocal()
+    db = SessionLocal()
     try:
         trabajador = db.query(Trabajador).filter(Trabajador.clave_unica == clave).first()
         if not trabajador:
             raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-        
+        # devolvemos los datos necesarios para App.js / Appi.js
         return {
             "nombre": trabajador.nombre,
             "clave_unica": trabajador.clave_unica,
-            # agrega otros campos que quieras
+            "aviso": trabajador.aviso
         }
     finally:
         db.close()
