@@ -37,6 +37,7 @@ Base.metadata.create_all(bind=engine)
 class TrabajadorCreate(BaseModel):
     nombre: str
     dni: str
+    wsapp: str
 
 class TrabajadorOut(BaseModel):
     nombre: str
