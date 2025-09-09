@@ -44,12 +44,15 @@ class TrabajadorOut(BaseModel):
 
 # ------------------ DEPENDENCIA DB ------------------
 def get_db():
-    db = SessionLocal()
+    db = Session(bind=engine)
     try:
         yield db
     finally:
         db.close()
-
+#--------------------------------------------
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Backend FastAPI corriendo en Render 🚀"}
 # ------------------ ENDPOINT ------------------
 @app.post("/registro/", response_model=TrabajadorOut)
 def crear_trabajador(trabajador: TrabajadorCreate, db: Session = Depends(get_db)):
@@ -67,10 +70,3 @@ def crear_trabajador(trabajador: TrabajadorCreate, db: Session = Depends(get_db)
     db.refresh(nuevo)
     return nuevo
 # -------------------------------------------
-from fastapi import FastAPI
-
-app = FastAPI()
-
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "Backend FastAPI corriendo en Render 🚀"}
