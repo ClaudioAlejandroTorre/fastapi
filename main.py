@@ -28,6 +28,7 @@ class Trabajador(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, index=True)
     dni = Column(String, index=True)  # 👈 ahora obligatorio en DB
+    wsapp = Column(String, nullable=False, default="")  # <--- obligatorio
     clave_unica = Column(String, unique=True, index=True)
 
 Base.metadata.create_all(bind=engine)
@@ -54,19 +55,22 @@ def get_db():
 def root():
     return {"status": "ok", "message": "Backend FastAPI corriendo en Render 🚀"}
 # ------------------ ENDPOINT ------------------
-@app.post("/registro/", response_model=TrabajadorOut)
-def crear_trabajador(trabajador: TrabajadorCreate, db: Session = Depends(get_db)):
-    if not trabajador.dni:
-        raise HTTPException(status_code=400, detail="DNI es obligatorio")
+@app.post("/registro/")
+def crear_trabajador(trabajador: TrabajadorCreate):
+    db = SessionLocal()
+    try:
+        clave_unica = uuid.uuid4().hex[:8]
+        nuevo = Trabajador(
+            nombre=trabajador.nombre,
+            dni=trabajador.dni,
+            wsapp=trabajador.wsapp or "",  # <--- nunca NULL
+            clave_unica=clave_unica
+        )
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+        return {"id": nuevo.id, "clave_unica": clave_unica}
+    finally:
+        db.close()
 
-    clave = str(uuid.uuid4())[:8]  # Clave corta
-    nuevo = Trabajador(
-        nombre=trabajador.nombre,
-        dni=trabajador.dni,
-        clave_unica=clave
-    )
-    db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
-    return nuevo
 # -------------------------------------------
