@@ -634,6 +634,19 @@ def eliminar_trabajador(
     db.commit()
 
     return {"msg": "Trabajador eliminado correctamente"}
+#############################################################
+@app.get("/login_unico/{trabajador_id}/{token}", response_model=TrabajadorSchema)
+def login_unico(trabajador_id: int, token: str, db: Session = Depends(get_db)):
+    trabajador = db.query(Trabajador).filter(
+        Trabajador.id == trabajador_id,
+        Trabajador.token == token
+    ).first()
+    if not trabajador:
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado o token inválido")
+    return trabajador
+
+
+####################################################
 
 
 
