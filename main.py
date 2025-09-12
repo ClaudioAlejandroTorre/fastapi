@@ -635,10 +635,12 @@ def eliminar_trabajador(
 
     return {"msg": "Trabajador eliminado correctamente"}
 #############################################################
-@app.get("/login_unico/{trabajador_id}/{token}", response_model=TrabajadorSchema)
-def login_unico(trabajador_id: int, token: str, db: Session = Depends(get_db)):
+#@app.get("/login_unico/{trabajador_id}/{token}", response_model=TrabajadorSchema)
+#def login_unico(trabajador_id: int, token: str, db: Session = Depends(get_db)):
+@app.get("/login_unico/{token}", response_model=TrabajadorSchema)
+def login_unico(token: str, db: Session = Depends(get_db)):
     trabajador = db.query(Trabajador).filter(
-        Trabajador.id == trabajador_id,
+        #Trabajador.id == trabajador_id,
         Trabajador.token == token
     ).first()
     if not trabajador:
