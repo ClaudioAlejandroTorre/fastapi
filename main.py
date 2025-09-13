@@ -377,7 +377,6 @@ def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends
             Servicio.titulo, 
             Trabajador.id, 
             Trabajador.nombre, 
-            Trabajador.dni,
             Trabajador.penales, 
             Trabajador.foto, 
             Trabajador.wsapp, 
@@ -638,12 +637,11 @@ def eliminar_trabajador(
 #############################################################
 #@app.get("/login_unico/{trabajador_id}/{token}", response_model=TrabajadorSchema)
 #def login_unico(trabajador_id: int, token: str, db: Session = Depends(get_db)):
-@app.get("/login_unico/{dni}", response_model=TrabajadorSchema)
-def login_unico(dni: str, db: Session = Depends(get_db)):
+@app.get("/login_unico/{token}", response_model=TrabajadorSchema)
+def login_unico(token: str, db: Session = Depends(get_db)):
     trabajador = db.query(Trabajador).filter(
         #Trabajador.id == trabajador_id,
-        ##Trabajador.token == token
-        Trabajador.dni == dni
+        Trabajador.token == token
     ).first()
     if not trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado o token inválido")
