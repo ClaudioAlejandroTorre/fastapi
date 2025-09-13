@@ -377,6 +377,7 @@ def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends
             Servicio.titulo, 
             Trabajador.id, 
             Trabajador.nombre, 
+            Trabajador.dni,
             Trabajador.penales, 
             Trabajador.foto, 
             Trabajador.wsapp, 
