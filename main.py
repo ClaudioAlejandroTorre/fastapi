@@ -331,7 +331,7 @@ def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
-    return {"id": nuevo.id, "token": token}
+    return {"id": nuevo.id, "token": token, "wsapp": trabajador.whatsapp}
 
 ####################################################
 @app.get("/Servicios_React/")
