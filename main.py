@@ -1,9 +1,9 @@
-""" Probar mapade tokens PostGrade 
+""" Probado en SQlite el 7 de julio de 2025 y listo para migrar a PostGrade 
 """
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Depends, status
 from sqlalchemy import create_engine, Column, Integer, Float, String, ForeignKey, select, Select, DateTime
-from sqlalchemy.orm import declarative_base, relationship, joinedload
+from sqlalchemy.orm import declarative_base, relationship, joinedload, sessionmaker
 from sqlalchemy.schema import PrimaryKeyConstraint
 from typing import Annotated, Optional
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +15,8 @@ from datetime import datetime, timezone
 import cloudinary
 import cloudinary.uploader
 import os
-import secrets
+import random
+
 
 cloudinary.config(
   cloud_name='dnlios4ua',
@@ -46,7 +47,7 @@ origins = [
 DATABASE_URL = "postgresql://laburantes_db_user:mtNUViyTddNAbZhAVZP6R23G9k0BFcJY@dpg-d1m3kqa4d50c738f4a7g-a:5432/laburantes_db"
 engine = create_engine(DATABASE_URL)
 
-
+SessionLocal = sessionmaker(bind=engine)
 
 # Make the DeclarativeMeta
 Base = declarative_base()
@@ -117,9 +118,8 @@ class Trabajador(Base):
     wsapp = Column(String, nullable=False)
     foto = Column(String, nullable=False)
     penales = Column(String, nullable=False)
-    token = Column(String, unique=True, index=True)
     servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
-
+    clave_unica = Column(String, unique=True, index=True, nullable=False)
     #nuevos############### 19 / 6
 class Opinion(Base):
     __tablename__ = 'opiniones'
@@ -263,10 +263,14 @@ from fastapi import Query
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-
+import string
 SessionDep = Annotated[Session, Depends(get_session)]
 app = FastAPI()
 # Ruta absoluta a la carpeta de fotos
+# Generar clave única aleatoria
+def generar_clave_unica(length=8):
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
 app.mount("/static", StaticFiles(directory="fotos"), name="static")
 app.add_middleware(
     CORSMiddleware,
@@ -317,23 +321,33 @@ def cargar_oficios(db: Session = Depends(get_db)):
 #@app.post("/registro/", status_code=status.HTTP_201_CREATED)
 ############### podificado por gpt
 #async def crear_registro_Trabajador(registro: TrabajadorBase, db: db_dependency):
-#   db_registro = Trabajador(**registro.dict())
+#    db_registro = Trabajador(**registro.dict())
 #    db.add(db_registro)
 #    db.commit()
-#    db.refresh(db_registro)
+#   db.refresh(db_registro)
 #    return {"mensaje": "Registro exitoso", "id": db_registro.id}
-
-# Crear
+#Insertado de modelo pero con DNI 10/09/2025###################################################
 @app.post("/registro/")
-def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
-    token = secrets.token_hex(16)
-    nuevo = Trabajador(**trabajador.dict(), token=token)
-    db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
-    return {"id": nuevo.id, "token": token}
+def crear_trabajador(data: dict):
+    db = SessionLocal()
+    dni = data["dni"].strip()
 
-####################################################
+    # Verificar si ya existe un trabajador con ese DNI
+    existente = db.query(Trabajador).filter(Trabajador.dni == dni).first()
+    if existente:
+        db.close()
+        raise HTTPException(status_code=409, detail="Ese DNI ya está registrado. Usa tu clave única.")
+
+    # Si no existe → crear nuevo
+    clave = generar_clave_unica()
+    trabajador = Trabajador(nombre=dni, clave_unica=clave)
+    db.add(trabajador)
+    db.commit()
+    db.refresh(trabajador)
+    db.close()
+    return {"clave_unica": clave}
+###########################################
+########################
 @app.get("/Servicios_React/")
 async def Servicios(db: Session = Depends(get_db)):
 
@@ -369,21 +383,10 @@ async def crear_Relacion_Trabajador_Servicio(registro: ServicioTrabajadorBase, d
     db.commit()
     return {"mensaje": "Relación creada correctamente"}
 ##################################################
-# Listar
 @app.get("/Listo_trabajadoresPorServicio/{titulo_servicio}")
 def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends(get_db)):
     consulta = (
-        db.query(
-            Servicio.titulo, 
-            Trabajador.id, 
-            Trabajador.nombre, 
-            Trabajador.penales, 
-            Trabajador.foto, 
-            Trabajador.wsapp, 
-            Trabajador.latitud, 
-            Trabajador.longitud,
-            Trabajador.token  # 👈 agregado token
-        )
+        db.query(Servicio.titulo, Trabajador.id, Trabajador.nombre, Trabajador.penales, Trabajador.foto, Trabajador.wsapp, Trabajador.latitud, Trabajador.longitud)
         .join(Servicios_Trabajadores, Servicio.id == Servicios_Trabajadores.servicio_id)
         .join(Trabajador, Trabajador.id == Servicios_Trabajadores.trabajador_id)
         .filter(Servicio.titulo == titulo_servicio)
@@ -398,14 +401,11 @@ def listar_trabajadores_por_servicio(titulo_servicio: str, db: Session = Depends
             "foto": row[4],
             "wsapp": row[5],
             "Latitud": row[6],
-            "Longitud": row[7],
-            "token": row[8]  # 👈 incluimos token en el JSON
+            "Longitud": row[7]
         }
         for row in consulta
     ]
     return {"trabajadores": resultado}
-
-#
 ####################################################
 @app.get("/Servicios/")
 async def Servicios(db: Session = Depends(get_db)):
@@ -490,42 +490,44 @@ async def crear_tracking(tracking: TrackingCreate, db: Session = Depends(get_db)
     db.refresh(nuevo_tracking)
     return {"mensaje": "Tracking registrado", "id": nuevo_tracking.id}
 ###########F I N BackEnd #########################################from pydantic import BaseModel
-
-
-from pydantic import BaseModel
-class ActualizarDescripcion(BaseModel):
+class DescripcionUpdate(BaseModel):
     descripcion: str
-    token: str
-# Editar
-from fastapi import Body
 
-@app.patch("/trabajadores/{idt}")
-def actualizar_descripcion(
-    idt: int,
-    payload: ActualizarDescripcion = Body(...),
-    db: Session = Depends(get_db)
-):
-    trabajador = db.query(Trabajador).filter(
-        Trabajador.id == idt,
-        Trabajador.token == payload.token
-    ).first()
+@app.put("/trabajadoresa/{id_trabajador}/descripcion")
+def actualizar_descripciona(id_trabajador: int, body: DescripcionUpdate, db: Session = Depends(get_db)):
+    t = db.query(Trabajador).filter(Trabajador.id == id_trabajador).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
-    if not trabajador:
-        raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
-
-    # ⚠️ Guardar en la columna correcta
-    trabajador.penales = payload.descripcion
+    t.penales = body.descripcion  # ← tu front usa 'penales' como descripción
     db.commit()
-    db.refresh(trabajador)
-
-    return {"msg": "Descripción actualizada", "penales": trabajador.penales}
+    return {"ok": True, "mensaje": "Descripción actualizada"}
 
 
+##################
+class DescripcionUpdate(BaseModel):
+    descripcion: str
 
+@app.patch("/trabajadores/{trabajador_id}", response_model=TrabajadorPublic)
+def update_penales(
+    *,
+    session: Session = Depends(get_session),
+    trabajador_id: int,
+    descripcion: str = Query(...)
+):
+    print(f"🔔 PATCH recibido: trabajador_id={trabajador_id}, descripcion={descripcion}")
+    db_trabajador = session.get(Trabajador, trabajador_id)
+    if not db_trabajador:
+        raise HTTPException(status_code=404, detail="Trabajador not found")
 
+    db_trabajador.penales = descripcion
+    session.add(db_trabajador)
+    session.commit()
+    session.refresh(db_trabajador)
 
+    return db_trabajador
 
-
+####################
 @app.get("/ping")
 def ping():
     print("🔔 PINGA recibido")
@@ -588,68 +590,34 @@ def delete_foto(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error eliminando foto: {e}")
 ####################
-# Borrar
-cloudinary.config(
-  cloud_name='dnlios4ua',
-  api_key='747777351831491',
-  api_secret='mvqCvHtSJYQHgKhtEwAfsHw93FI',
-  secure=True
-)
-from pydantic import BaseModel
-
-class TokenPayload(BaseModel):
-    token: str
 @app.delete("/trabajadores/{idt}")
-def eliminar_trabajador(
-    idt: int,
-    payload: TokenPayload = Body(...),
-    db: Session = Depends(get_db)
-):
-    # Validar token
-    trabajador = db.query(Trabajador).filter(
-        Trabajador.id == idt,
-        Trabajador.token == payload.token
-    ).first()
-
+def eliminar_trabajador(idt: int, db: Session = Depends(get_db)):
+    trabajador = db.query(Trabajador).filter(Trabajador.id == idt).first()
     if not trabajador:
-        raise HTTPException(status_code=403, detail="Token inválido o trabajador no encontrado")
-
-    # Eliminar foto de Cloudinary si existe
+        raise HTTPException(status_code=404, detail="Trabajador no encontrado")
+    ####################
+    # 2) Eliminar opiniones asociadas
+    opiniones = db.query(Opinion).filter(Opinion.trabajador_id == idt).all()
+    if opiniones:
+        for op in opiniones:
+            db.delete(op)
+     ####################
+    # Agregado 29/8
+        # 3) Si tiene foto, eliminarla en Cloudinary
     if trabajador.foto:
         try:
-            cloudinary.uploader.destroy(trabajador.foto)
+         # Tomar solo lo que está después del último "/" y antes de la extensión
+             public_id = trabajador.foto.split("/")[-1].split(".")[0]
+             result = cloudinary.uploader.destroy(public_id)
+             print(f"⚠️ Foto Eliminada: {public_id} (result: {result})")
+
         except Exception as e:
-            print(f"⚠️ Error eliminando foto en Cloudinary: {e}")
+             print(f"⚠️ Error al borrar foto en Cloudinary: {e}")
 
-    # Eliminar opiniones asociadas
-    db.query(Opinion).filter(Opinion.trabajador_id == idt).delete()
+    ####################
 
-    # Eliminar filas en servicio_trabajadores
-    db.query(Servicios_Trabajadores).filter(
-        Servicios_Trabajadores.trabajador_id == idt
-    ).delete()
-
-    # Eliminar trabajador
     db.delete(trabajador)
     db.commit()
+    return {"detail": f"Trabajador {idt} eliminado correctamente, con su foto "}
 
-    return {"msg": "Trabajador eliminado correctamente"}
-#############################################################
-#@app.get("/login_unico/{trabajador_id}/{token}", response_model=TrabajadorSchema)
-#def login_unico(trabajador_id: int, token: str, db: Session = Depends(get_db)):
-@app.get("/login_unico/{token}", response_model=TrabajadorSchema)
-def login_unico(token: str, db: Session = Depends(get_db)):
-    trabajador = db.query(Trabajador).filter(
-        #Trabajador.id == trabajador_id,
-        Trabajador.token == token
-    ).first()
-    if not trabajador:
-        raise HTTPException(status_code=404, detail="Trabajador no encontrado o token inválido")
-    return trabajador
-
-
-####################################################
-
-
-
-   
+####################
