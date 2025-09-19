@@ -314,24 +314,31 @@ def cargar_oficios(db: Session = Depends(get_db)):
     return {"mensaje": f"Se insertaron {len(oficios)} oficios"}
 
 
-#@app.post("/registro/", status_code=status.HTTP_201_CREATED)
-############### podificado por gpt
-#async def crear_registro_Trabajador(registro: TrabajadorBase, db: db_dependency):
-#   db_registro = Trabajador(**registro.dict())
-#    db.add(db_registro)
-#    db.commit()
-#    db.refresh(db_registro)
-#    return {"mensaje": "Registro exitoso", "id": db_registro.id}
+
 
 # Crear
+#@app.post("/registro/")
+#def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
+#    token = secrets.token_hex(16)
+#    nuevo = Trabajador(**trabajador.dict(), token=token)
+#    db.add(nuevo)
+#    db.commit()
+#    db.refresh(nuevo)
+#    return {"id": nuevo.id, "token": token}
+
 @app.post("/registro/")
 def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
-    token = secrets.token_hex(16)
+    # Usar el DNI como token
+    token = trabajador.dni
+
+    # Crear el registro usando el token como DNI
     nuevo = Trabajador(**trabajador.dict(), token=token)
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
+
     return {"id": nuevo.id, "token": token}
+
 
 ####################################################
 @app.get("/Servicios_React/")
