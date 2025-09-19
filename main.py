@@ -617,7 +617,8 @@ def eliminar_trabajador(
     # Eliminar foto de Cloudinary si existe
     if trabajador.foto:
         try:
-            cloudinary.uploader.destroy(trabajador.foto)
+            public_id = trabajador.foto.split("/")[-1].split(".")[0]
+            cloudinary.uploader.destroy(public_id)
         except Exception as e:
             print(f"⚠️ Error eliminando foto en Cloudinary: {e}")
 
