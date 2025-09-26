@@ -129,7 +129,7 @@ class Opinion(Base):
 
     comentario = Column(String, nullable=False)
     calificacion = Column(Integer, nullable=False)  # Valor de 1 a 5, por ejemplo
-    fecha = Column(DateTime, default=datetime.now(timezone.utc))
+    fecha = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     #### para ver opiniones es lo que sigue
 
 
@@ -195,11 +195,12 @@ from fastapi.encoders import jsonable_encoder
 class OpinionCreate(BaseModel):
     comentario: str
     calificacion: int
-    fecha: DateTime
+    fecha: datetime
+    
 class OpinionOut(BaseModel):
     comentario: str
     calificacion: int
-    fecha: DateTime
+    fecha: datetime
 
     class Config:
         orm_mode = True
@@ -479,7 +480,6 @@ def crear_opinion(param: int, opinion: OpinionCreate, db: Session = Depends(get_
         trabajador_id=param,
         comentario=opinion.comentario,
         calificacion=opinion.calificacion,
-        fecha=opinion.fecha,
     )
     db.add(nueva_opinion)
     db.commit()
