@@ -197,7 +197,7 @@ from fastapi.encoders import jsonable_encoder
 class OpinionCreate(BaseModel):
     comentario: str
     calificacion: int
-    fecha: datetime
+    #fecha: datetime
     
 class OpinionOut(BaseModel):
     comentario: str
