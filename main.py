@@ -118,6 +118,8 @@ class Trabajador(Base):
     foto = Column(String, nullable=False)
     penales = Column(String, nullable=False)
     token = Column(String, unique=True, index=True)
+    # 👇 clave_unica se autocompleta con fecha/hora actual
+    clave_unica = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
 
     #nuevos############### 19 / 6
