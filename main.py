@@ -195,10 +195,11 @@ from fastapi.encoders import jsonable_encoder
 class OpinionCreate(BaseModel):
     comentario: str
     calificacion: int
-    
+    fecha: DateTime
 class OpinionOut(BaseModel):
     comentario: str
     calificacion: int
+    fecha: DateTime
 
     class Config:
         orm_mode = True
@@ -478,6 +479,7 @@ def crear_opinion(param: int, opinion: OpinionCreate, db: Session = Depends(get_
         trabajador_id=param,
         comentario=opinion.comentario,
         calificacion=opinion.calificacion,
+        fecha=opinion.fecha,
     )
     db.add(nueva_opinion)
     db.commit()
