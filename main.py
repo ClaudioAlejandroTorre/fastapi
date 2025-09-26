@@ -118,8 +118,6 @@ class Trabajador(Base):
     foto = Column(String, nullable=False)
     penales = Column(String, nullable=False)
     token = Column(String, unique=True, index=True)
-    clave_unica = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
     servicios = relationship("Servicio", secondary="servicios_trabajadores", back_populates='trabajadores')
 
     #nuevos############### 19 / 6
@@ -228,7 +226,6 @@ class TrabajadorBase(BaseModel):
     wsapp: str
     foto: str
     penales: str
-    clave_unica: datetime
 
 class UsuarioBase(BaseModel):
     nombre: str
@@ -335,8 +332,6 @@ def cargar_oficios(db: Session = Depends(get_db)):
 def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
     # Usar el DNI como token
     token = trabajador.dni
-    clave_unica = trabajador.clave_unica
-    
 
     # Crear el registro usando el token como DNI
     nuevo = Trabajador(**trabajador.dict(), token=token)
