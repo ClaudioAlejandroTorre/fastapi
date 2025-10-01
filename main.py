@@ -670,7 +670,7 @@ def login_unico(token: str, db: Session = Depends(get_db)):
     # ✅ Normalizar foto: nunca devolver None
     if not trabajador.foto or trabajador.foto.strip() == "":
         trabajador.foto = "https://raw.githubusercontent.com/Laburantes-Seg/laburantes-privacidad/main/emblema.png"
-
+    print(trabajador.token)
     return trabajador
  
 
