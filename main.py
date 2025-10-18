@@ -332,7 +332,7 @@ def cargar_oficios(db: Session = Depends(get_db)):
 #    db.refresh(nuevo)
 #    return {"id": nuevo.id, "token": token}
 
-@app.post("/registro/")
+@app.post("/registros/")
 def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
     # Usar el DNI como token
     token = trabajador.dni
@@ -347,6 +347,32 @@ def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
 
 
 ####################################################
+@app.post("/registro/")
+def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
+    # Verificar si ya existe un trabajador con el mismo DNI
+    existente = db.query(Trabajador).filter(Trabajador.dni == trabajador.dni).first()
+    if existente:
+        raise HTTPException(
+            status_code=400,
+            detail="Ya existe un trabajador con este DNI"
+        )
+
+    # Usar el DNI como token
+    token = trabajador.dni
+
+    # Crear el registro usando el token como DNI
+    nuevo = Trabajador(**trabajador.dict(), token=token)
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+
+    return {"id": nuevo.id, "token": token}
+
+
+
+
+
+###########################################
 @app.get("/Servicios_React/")
 async def Servicios(db: Session = Depends(get_db)):
 
