@@ -311,7 +311,7 @@ def cargar_oficios(db: Session = Depends(get_db)):
         'Maquinista rural', 'Peón rural', 'Cuidador de campo', 'Apicultor', 'Viverista',
         'Cortador de leña', 'Operario de maquinaria pesada', 'Zanellero', 'Herrador','Chofer', 'Talabertero-a',
         'Pintura artística', 'Diseño de tatuajes', 'Tatuador', 'Estilista canino','Constructor', 'Maestro Mayor de Obras', 'Alambrador','Técnico Aire Acondicionado',
-        'Carnicero','Parrillero','Repostero','Guardavidas','Comunity Manager','Bobinador Motores Electricos'
+        'Carnicero','Parrillero','Repostero','Guardavidas','Comunity Manager','Bobinador Motores Eléctricos'
     ]
 
     for titulo in oficios:
