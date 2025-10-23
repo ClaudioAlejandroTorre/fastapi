@@ -311,7 +311,7 @@ def cargar_oficios(db: Session = Depends(get_db)):
         'Maquinista rural', 'Peón rural', 'Cuidador de campo', 'Apicultor', 'Viverista',
         'Cortador de leña', 'Operario de maquinaria pesada', 'Zanellero', 'Herrador','Chofer', 'Talabertero-a',
         'Pintura artística', 'Diseño de tatuajes', 'Tatuador', 'Estilista canino','Constructor', 'Maestro Mayor de Obras', 'Alambrador','Técnico Aire Acondicionado',
-        'Carnicero','Parrillero','Repostero','Guardavidas','Comunity Manager'
+        'Carnicero','Parrillero','Repostero','Guardavidas','Comunity Manager','Bobinador Motores Electricos'
     ]
 
     for titulo in oficios:
@@ -332,18 +332,18 @@ def cargar_oficios(db: Session = Depends(get_db)):
 #    db.refresh(nuevo)
 #    return {"id": nuevo.id, "token": token}
 
-@app.post("/registros/")
-def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
+##### Rompía el Backend @app.post("/registros/")
+#def crear_trabajador(trabajador: TrabajadorBase, db: Session = Depends(get_db)):
     # Usar el DNI como token
-    token = trabajador.dni
+  #  token = trabajador.dni
 
     # Crear el registro usando el token como DNI
-    nuevo = Trabajador(**trabajador.dict(), token=token)
-    db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
+   # nuevo = Trabajador(**trabajador.dict(), token=token)
+   # db.add(nuevo)
+   # db.commit()
+    #db.refresh(nuevo)
 
-    return {"id": nuevo.id, "token": token}
+   # return {"id": nuevo.id, "token": token}
 
 
 ####################################################
